@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dash Modes</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Select Your Mode</h1>
+    <div class="mode-grid">
+      <button class="mode-btn easy" onclick="selectMode('Easy')">Easy</button>
+      <button class="mode-btn normal" onclick="selectMode('Normal')">Normal</button>
+      <button class="mode-btn hard" onclick="selectMode('Hard')">Hard</button>
+      <button class="mode-btn insane" onclick="selectMode('Insane')">Insane</button>
+      <button class="mode-btn extreme" onclick="selectMode('Extreme')">Extreme</button>
+    </div>
+    <div id="game-screen" class="hidden">
+      <h2 id="mode-title"></h2>
+      <p>This is where your level for this mode will be loaded.</p>
+      <button onclick="goBack()">Back to Menu</button>
+    </div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
