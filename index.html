@@ -3,25 +3,182 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dash Modes</title>
-  <link rel="stylesheet" href="styles.css" />
+  <title>Dash Game</title>
+  <style>
+    body {
+      margin: 0;
+      background-color: #0f0f0f;
+      color: white;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: sans-serif;
+    }
+
+    .container {
+      text-align: center;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+      font-size: 2rem;
+    }
+
+    .mode-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 1rem;
+      padding: 0 2rem;
+    }
+
+    .mode-btn {
+      padding: 15px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform 0.2s;
+      color: white;
+    }
+
+    .mode-btn:hover {
+      transform: translateY(-5px);
+    }
+
+    .easy { background-color: #1abc9c; }
+    .normal { background-color: #3498db; }
+    .hard { background-color: #f39c12; }
+    .insane { background-color: #e74c3c; }
+    .extreme { background-color: #8e44ad; }
+
+    canvas.hidden {
+      display: none;
+    }
+
+    canvas {
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
     <h1>Select Your Mode</h1>
     <div class="mode-grid">
-      <button class="mode-btn easy" onclick="selectMode('Easy')">Easy</button>
-      <button class="mode-btn normal" onclick="selectMode('Normal')">Normal</button>
-      <button class="mode-btn hard" onclick="selectMode('Hard')">Hard</button>
-      <button class="mode-btn insane" onclick="selectMode('Insane')">Insane</button>
-      <button class="mode-btn extreme" onclick="selectMode('Extreme')">Extreme</button>
-    </div>
-    <div id="game-screen" class="hidden">
-      <h2 id="mode-title"></h2>
-      <p>This is where your level for this mode will be loaded.</p>
-      <button onclick="goBack()">Back to Menu</button>
+      <button class="mode-btn easy" onclick="startGame('easy')">Easy</button>
+      <button class="mode-btn normal" onclick="startGame('normal')">Normal</button>
+      <button class="mode-btn hard" onclick="startGame('hard')">Hard</button>
+      <button class="mode-btn insane" onclick="startGame('insane')">Insane</button>
+      <button class="mode-btn extreme" onclick="startGame('extreme')">Extreme</button>
     </div>
   </div>
-  <script src="script.js"></script>
+
+  <canvas id="gameCanvas" class="hidden"></canvas>
+
+  <script>
+    let canvas = document.getElementById('gameCanvas');
+    let ctx = canvas.getContext('2d');
+    let cube = { x: 50, y: 300, width: 30, height: 30, color: randomColor(), vy: 0, jumping: false };
+    let gravity = 0.6;
+    let level = [];
+    let mode = 'easy';
+
+    function startGame(selectedMode) {
+      document.querySelector('.container').style.display = 'none';
+      canvas.classList.remove('hidden');
+      mode = selectedMode;
+      cube.color = randomColor();
+      cube.x = 50;
+      cube.y = 300;
+      cube.vy = 0;
+      cube.jumping = false;
+      level = generateLevel(mode);
+      requestAnimationFrame(gameLoop);
+    }
+
+    function generateLevel(mode) {
+      const obstacles = [];
+      let count = mode === 'easy' ? 5 : mode === 'normal' ? 10 : mode === 'hard' ? 15 : mode === 'insane' ? 20 : 25;
+      for (let i = 1; i <= count; i++) {
+        obstacles.push({ x: i * 200, y: 320, width: 20 + Math.random() * 30, height: 30 });
+      }
+      return obstacles;
+    }
+
+    function randomColor() {
+      return `hsl(${Math.random() * 360}, 80%, 60%)`;
+    }
+
+    function gameLoop() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      // Background color by mode
+      switch (mode) {
+        case 'easy': ctx.fillStyle = '#1abc9c'; break;
+        case 'normal': ctx.fillStyle = '#3498db'; break;
+        case 'hard': ctx.fillStyle = '#f39c12'; break;
+        case 'insane': ctx.fillStyle = '#e74c3c'; break;
+        case 'extreme': ctx.fillStyle = '#8e44ad'; break;
+      }
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Ground
+      ctx.fillStyle = '#333';
+      ctx.fillRect(0, 350, canvas.width, 5);
+
+      // Gravity & jump
+      cube.vy += gravity;
+      cube.y += cube.vy;
+      if (cube.y >= 320) {
+        cube.y = 320;
+        cube.vy = 0;
+        cube.jumping = false;
+      }
+
+      // Player
+      ctx.fillStyle = cube.color;
+      ctx.fillRect(cube.x, cube.y, cube.width, cube.height);
+
+      // Obstacles
+      for (let i = 0; i < level.length; i++) {
+        let obs = level[i];
+        obs.x -= 4;
+        ctx.fillStyle =
+          mode === 'easy' ? '#16a085' :
+          mode === 'normal' ? '#2980b9' :
+          mode === 'hard' ? '#d35400' :
+          mode === 'insane' ? '#c0392b' :
+          '#6c3483';
+        ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+
+        // Collision
+        if (cube.x < obs.x + obs.width && cube.x + cube.width > obs.x && cube.y + cube.height > obs.y) {
+          alert('You lost!');
+          location.reload();
+          return;
+        }
+      }
+
+      // Win condition
+      if (level.length > 0 && level[level.length - 1].x < -50) {
+        alert('Level Complete!');
+        location.reload();
+        return;
+      }
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if ((e.code === 'Space' || e.code === 'ArrowUp') && !cube.jumping) {
+        cube.vy = -12;
+        cube.jumping = true;
+      }
+    });
+  </script>
 </body>
 </html>
