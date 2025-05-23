@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Dash Game</title>
   <style>
     body {
@@ -94,7 +94,7 @@
       cube.x = 50;
       cube.y = 300;
       cube.vy = 0;
-      cube.jumping = false;
+      cube.jumping = false;  // No cooldown, jump ready immediately
       level = generateLevel(mode);
       requestAnimationFrame(gameLoop);
     }
@@ -130,7 +130,7 @@
       ctx.fillStyle = '#333';
       ctx.fillRect(0, 350, canvas.width, 5);
 
-      // Gravity & jump
+      // Gravity & jump physics
       cube.vy += gravity;
       cube.y += cube.vy;
       if (cube.y >= 320) {
@@ -139,11 +139,11 @@
         cube.jumping = false;
       }
 
-      // Player
+      // Draw player cube
       ctx.fillStyle = cube.color;
       ctx.fillRect(cube.x, cube.y, cube.width, cube.height);
 
-      // Obstacles
+      // Move and draw obstacles
       for (let i = 0; i < level.length; i++) {
         let obs = level[i];
         obs.x -= 4;
@@ -155,15 +155,17 @@
           '#6c3483';
         ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
 
-        // Collision
-        if (cube.x < obs.x + obs.width && cube.x + cube.width > obs.x && cube.y + cube.height > obs.y) {
+        // Collision detection
+        if (cube.x < obs.x + obs.width &&
+            cube.x + cube.width > obs.x &&
+            cube.y + cube.height > obs.y) {
           alert('You lost!');
           location.reload();
           return;
         }
       }
 
-      // Win condition
+      // Level completion
       if (level.length > 0 && level[level.length - 1].x < -50) {
         alert('Level Complete!');
         location.reload();
@@ -173,8 +175,17 @@
       requestAnimationFrame(gameLoop);
     }
 
+    // Keyboard jump
     window.addEventListener('keydown', (e) => {
       if ((e.code === 'Space' || e.code === 'ArrowUp') && !cube.jumping) {
+        cube.vy = -12;
+        cube.jumping = true;
+      }
+    });
+
+    // Mouse jump (fix for your request)
+    window.addEventListener('mousedown', () => {
+      if (!cube.jumping) {
         cube.vy = -12;
         cube.jumping = true;
       }
