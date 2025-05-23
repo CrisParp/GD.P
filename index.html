@@ -1,353 +1,206 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Geometry Dash Inspired Game + Editor</title>
-<style>
-  body, html {
-    margin: 0; padding: 0; height: 100%;
-    display: flex; justify-content: center; align-items: center;
-    background: #121212; color: white; font-family: Arial, sans-serif;
-    user-select: none;
-  }
-  .container {
-    text-align: center;
-  }
-  h1 {
-    margin-bottom: 20px;
-  }
-  button {
-    margin: 8px;
-    padding: 12px 24px;
-    font-size: 18px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background 0.3s;
-    background: #444;
-    color: white;
-  }
-  button:hover {
-    background: #666;
-  }
-  #gameCanvas {
-    border: 3px solid #555;
-    display: none;
-    background: #222;
-  }
-  #editorUI {
-    display: none;
-    margin-top: 20px;
-  }
-  #editorUI button {
-    background: #277;
-  }
-  #levelNameInput {
-    margin: 10px 0;
-    font-size: 16px;
-    padding: 6px;
-    border-radius: 4px;
-    border: none;
-    width: 200px;
-  }
-  #instructions {
-    font-size: 14px;
-    margin-top: 10px;
-    color: #bbb;
-  }
-</style>
+  <meta charset="UTF-8">
+  <title>Geometry Dash-Inspired Game</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #121212;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+      gap: 20px;
+    }
+    button {
+      padding: 15px 40px;
+      font-size: 1.2em;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      background: linear-gradient(45deg, #4facfe, #00f2fe);
+      color: white;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 20px #00f2fe88;
+    }
+    canvas.hidden {
+      display: none;
+    }
+  </style>
 </head>
 <body>
-
-<div class="container">
-  <h1>Geometry Dash Inspired</h1>
-  <button onclick="startGame('easy')">Easy</button>
-  <button onclick="startGame('normal')">Normal</button>
-  <button onclick="startGame('hard')">Hard</button>
-  <button onclick="startGame('insane')">Insane</button>
-  <button onclick="startGame('extreme')">Extreme</button>
-  <br />
-  <button onclick="openEditor()">Edit Mode</button>
-</div>
-
-<canvas id="gameCanvas" width="800" height="400"></canvas>
-
-<div id="editorUI">
-  <input type="text" id="levelNameInput" placeholder="Level Name" />
-  <br />
-  <button onclick="saveLevel()">Save Level</button>
-  <button onclick="loadLevel()">Load Level</button>
-  <button onclick="backToMenu()">Back to Menu</button>
-  <div id="instructions">
-    Click anywhere on the canvas to add a block.<br />
-    Click a block to select it, press Delete to remove.<br />
-    Blocks can be dragged by clicking and dragging.<br />
-    Use Save and Load to store your levels locally.<br />
+  <div class="container">
+    <button onclick="startGame('easy')">Easy Mode</button>
+    <button onclick="startGame('normal')">Normal Mode</button>
+    <button onclick="startGame('hard')">Hard Mode</button>
+    <button onclick="startGame('insane')">Insane Mode</button>
+    <button onclick="startGame('demon')">Demon Mode</button>
   </div>
-</div>
 
-<script>
-  const canvas = document.getElementById('gameCanvas');
-  const ctx = canvas.getContext('2d');
-  const container = document.querySelector('.container');
-  const editorUI = document.getElementById('editorUI');
-  const levelNameInput = document.getElementById('levelNameInput');
+  <canvas id="gameCanvas" class="hidden"></canvas>
 
-  let mode = '';
-  let cube = { x: 50, y: 320, width: 30, height: 30, color: '', vy: 0, jumping: false };
-  let gravity = 0.6;
-  let level = [];
-  let gamePlaying = false;
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
 
-  // --- Game variables ---
-  let gameFrameId = null;
+    let cube = { x: 50, y: 300, width: 30, height: 30, color: randomColor(), vy: 0, jumping: false };
+    let gravity = 0.6;
+    let level = [];
+    let mode = 'easy';
+    let keys = {};
+    let mouseClicked = false;
 
-  // --- Editor variables ---
-  let editorBlocks = [];
-  let selectedBlock = null;
-  let dragOffsetX = 0;
-  let dragOffsetY = 0;
-  let dragging = false;
-
-  // --- Common Functions ---
-
-  function randomColor() {
-    return `hsl(${Math.random() * 360}, 80%, 60%)`;
-  }
-
-  // --- GAME FUNCTIONS ---
-
-  function startGame(selectedMode) {
-    mode = selectedMode;
-    container.style.display = 'none';
-    editorUI.style.display = 'none';
-    canvas.style.display = 'block';
-
-    cube.color = randomColor();
-    cube.x = 50;
-    cube.y = 320;
-    cube.vy = 0;
-    cube.jumping = false;
-
-    // If loaded level exists for this mode, use it; otherwise generate
-    const saved = localStorage.getItem(`level_${mode}`);
-    if (saved) {
-      level = JSON.parse(saved);
-    } else {
-      level = generateLevel(mode);
-    }
-
-    gamePlaying = true;
-    if (gameFrameId) cancelAnimationFrame(gameFrameId);
-    gameLoop();
-  }
-
-  function generateLevel(mode) {
-    const obstacles = [];
-    let count = mode === 'easy' ? 5 : mode === 'normal' ? 10 : mode === 'hard' ? 15 : mode === 'insane' ? 20 : 25;
-    for (let i = 1; i <= count; i++) {
-      obstacles.push({ x: i * 200, y: 320, width: 20 + Math.random() * 30, height: 30 });
-    }
-    return obstacles;
-  }
-
-  function gameLoop() {
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Draw ground
-    ctx.fillStyle = '#333';
-    ctx.fillRect(0, 350, canvas.width, 5);
-
-    // Update cube
-    cube.vy += gravity;
-    cube.y += cube.vy;
-    if (cube.y >= 320) {
-      cube.y = 320;
+    function startGame(selectedMode) {
+      document.querySelector('.container').style.display = 'none';
+      canvas.classList.remove('hidden');
+      mode = selectedMode;
+      cube.color = randomColor();
+      cube.x = 50;
+      cube.y = 300;
       cube.vy = 0;
       cube.jumping = false;
+      level = generateLevel(mode);
+      requestAnimationFrame(gameLoop);
     }
 
-    // Draw cube
-    ctx.fillStyle = cube.color;
-    ctx.fillRect(cube.x, cube.y, cube.width, cube.height);
+    function randomColor() {
+      return `hsl(${Math.random() * 360}, 80%, 60%)`;
+    }
 
-    // Move and draw obstacles
-    for (let i = 0; i < level.length; i++) {
-      let obs = level[i];
-      obs.x -= 4;
+    function generateLevel(mode) {
+      const obstacles = [];
+      const count = { easy: 5, normal: 10, hard: 15, insane: 20, demon: 30 }[mode];
+
+      for (let i = 1; i <= count; i++) {
+        const useSpike = Math.random() > 0.5;
+        const x = i * 200;
+        const y = Math.random() > 0.5 ? 250 : 320;
+
+        if (useSpike) {
+          obstacles.push({ type: 'spike', x, y });
+        } else {
+          obstacles.push({ type: 'block', x, y, width: 40, height: 40 });
+        }
+      }
+
+      return obstacles;
+    }
+
+    function drawSpike(x, y, size = 40) {
       ctx.fillStyle = '#e74c3c';
-      ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+      ctx.beginPath();
+      ctx.moveTo(x, y + size);
+      ctx.lineTo(x + size / 2, y);
+      ctx.lineTo(x + size, y + size);
+      ctx.closePath();
+      ctx.fill();
+    }
 
-      // Collision detection
-      if (
-        cube.x < obs.x + obs.width &&
-        cube.x + cube.width > obs.x &&
-        cube.y + cube.height > obs.y
-      ) {
-        alert('You lost!');
+    function drawBlock(block) {
+      ctx.fillStyle = '#3498db';
+      ctx.fillRect(block.x, block.y, block.width, block.height);
+    }
+
+    function gameLoop() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#444';
+      ctx.fillRect(0, 350, canvas.width, 5);
+
+      cube.vy += gravity;
+      cube.y += cube.vy;
+      if (cube.y >= 320) {
+        cube.y = 320;
+        cube.vy = 0;
+        cube.jumping = false;
+      }
+
+      ctx.fillStyle = cube.color;
+      ctx.fillRect(cube.x, cube.y, cube.width, cube.height);
+
+      for (let i = 0; i < level.length; i++) {
+        const obs = level[i];
+        obs.x -= 4;
+
+        if (obs.type === 'spike') {
+          drawSpike(obs.x, obs.y);
+          if (
+            cube.x < obs.x + 40 &&
+            cube.x + cube.width > obs.x &&
+            cube.y + cube.height > obs.y
+          ) {
+            alert('You lost!');
+            location.reload();
+            return;
+          }
+        }
+
+        if (obs.type === 'block') {
+          drawBlock(obs);
+
+          const hitSideOrBottom =
+            cube.x < obs.x + obs.width &&
+            cube.x + cube.width > obs.x &&
+            cube.y + cube.height > obs.y + 5;
+
+          const landingOnTop =
+            cube.x < obs.x + obs.width &&
+            cube.x + cube.width > obs.x &&
+            cube.y + cube.height > obs.y &&
+            cube.y + cube.height < obs.y + 10 &&
+            cube.vy > 0;
+
+          if (landingOnTop) {
+            cube.y = obs.y - cube.height;
+            cube.vy = 0;
+            cube.jumping = false;
+          } else if (hitSideOrBottom) {
+            alert('You lost!');
+            location.reload();
+            return;
+          }
+        }
+      }
+
+      if (level.length > 0 && level[level.length - 1].x < -50) {
+        alert('Level Complete!');
         location.reload();
         return;
       }
+
+      requestAnimationFrame(gameLoop);
     }
 
-    // Check level complete
-    if (level.length > 0 && level[level.length - 1].x < -50) {
-      alert('Level Complete!');
-      location.reload();
-      return;
-    }
-
-    gameFrameId = requestAnimationFrame(gameLoop);
-  }
-
-  window.addEventListener('keydown', (e) => {
-    if (!gamePlaying) return;
-    if ((e.code === 'Space' || e.code === 'ArrowUp') && !cube.jumping) {
-      cube.vy = -12;
-      cube.jumping = true;
-    }
-  });
-
-  // --- EDITOR FUNCTIONS ---
-
-  function openEditor() {
-    mode = 'editor';
-    container.style.display = 'none';
-    editorUI.style.display = 'block';
-    canvas.style.display = 'block';
-
-    editorBlocks = [];
-    selectedBlock = null;
-    dragging = false;
-
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
-    drawEditor();
-  }
-
-  function drawEditor() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Draw ground
-    ctx.fillStyle = '#333';
-    ctx.fillRect(0, 350, canvas.width, 5);
-
-    // Draw blocks
-    editorBlocks.forEach(block => {
-      ctx.fillStyle = block === selectedBlock ? '#5bc0de' : '#e74c3c';
-      ctx.fillRect(block.x, block.y, block.width, block.height);
+    window.addEventListener('keydown', (e) => {
+      keys[e.code] = true;
+      if ((e.code === 'Space' || e.code === 'ArrowUp') && !cube.jumping) {
+        cube.vy = -12;
+        cube.jumping = true;
+      }
     });
-  }
 
-  canvas.addEventListener('mousedown', (e) => {
-    if (mode !== 'editor') return;
+    window.addEventListener('keyup', (e) => {
+      keys[e.code] = false;
+    });
 
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-
-    // Check if clicked on a block (select it)
-    selectedBlock = null;
-    for (let i = editorBlocks.length - 1; i >= 0; i--) {
-      let b = editorBlocks[i];
-      if (
-        mouseX >= b.x &&
-        mouseX <= b.x + b.width &&
-        mouseY >= b.y &&
-        mouseY <= b.y + b.height
-      ) {
-        selectedBlock = b;
-        dragOffsetX = mouseX - b.x;
-        dragOffsetY = mouseY - b.y;
-        dragging = true;
-        drawEditor();
-        return;
+    canvas.addEventListener('mousedown', () => {
+      if (!cube.jumping) {
+        cube.vy = -12;
+        cube.jumping = true;
       }
-    }
-
-    // If not clicked on block, add a new block
-    if (mouseY < 320) return; // only add on ground level area
-
-    editorBlocks.push({ x: mouseX - 20, y: 320, width: 40, height: 30 });
-    drawEditor();
-  });
-
-  canvas.addEventListener('mousemove', (e) => {
-    if (mode !== 'editor' || !dragging || !selectedBlock) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-
-    selectedBlock.x = mouseX - dragOffsetX;
-    selectedBlock.y = mouseY - dragOffsetY;
-
-    if (selectedBlock.y > 320) selectedBlock.y = 320; // limit to ground height
-    if (selectedBlock.y < 200) selectedBlock.y = 200; // limit upper bound
-
-    drawEditor();
-  });
-
-  canvas.addEventListener('mouseup', () => {
-    if (mode !== 'editor') return;
-    dragging = false;
-  });
-
-  window.addEventListener('keydown', (e) => {
-    if (mode !== 'editor' && gamePlaying) return;
-
-    if (mode === 'editor') {
-      if (e.key === 'Delete' && selectedBlock) {
-        editorBlocks = editorBlocks.filter(b => b !== selectedBlock);
-        selectedBlock = null;
-        drawEditor();
-      }
-    }
-  });
-
-  // Save current editor blocks to localStorage with the level name
-  function saveLevel() {
-    let name = levelNameInput.value.trim();
-    if (!name) {
-      alert('Please enter a level name');
-      return;
-    }
-    const data = JSON.stringify(editorBlocks);
-    localStorage.setItem(`level_${name}`, data);
-    alert(`Level "${name}" saved!`);
-  }
-
-  // Load level blocks from localStorage by name
-  function loadLevel() {
-    let name = levelNameInput.value.trim();
-    if (!name) {
-      alert('Please enter a level name');
-      return;
-    }
-    const data = localStorage.getItem(`level_${name}`);
-    if (!data) {
-      alert(`No saved level found with the name "${name}"`);
-      return;
-    }
-    editorBlocks = JSON.parse(data);
-    selectedBlock = null;
-    drawEditor();
-    alert(`Level "${name}" loaded!`);
-  }
-
-  // Go back to menu from editor
-  function backToMenu() {
-    mode = '';
-    gamePlaying = false;
-    container.style.display = 'block';
-    editorUI.style.display = 'none';
-    canvas.style.display = 'none';
-  }
-</script>
-
+    });
+  </script>
 </body>
 </html>
