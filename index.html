@@ -1,181 +1,172 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Geometry Dash-Inspired Game</title>
+  <meta charset="UTF-8" />
+  <title>GD-Inspired Game</title>
   <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      background: #121212;
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0f0f1b;
+      color: white;
       font-family: 'Segoe UI', sans-serif;
+      overflow: hidden;
     }
-    .container {
+    .menu {
       display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
       flex-direction: column;
-      gap: 20px;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      gap: 15px;
+      animation: fadeIn 1s ease forwards;
     }
-    button {
-      padding: 15px 40px;
+    .menu h1 {
+      font-size: 2.5em;
+      margin-bottom: 20px;
+      color: #00ffff;
+    }
+    .menu button {
+      padding: 10px 25px;
       font-size: 1.2em;
       border: none;
       border-radius: 10px;
-      cursor: pointer;
-      background: linear-gradient(45deg, #4facfe, #00f2fe);
+      background: #1e90ff;
       color: white;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      cursor: pointer;
+      transition: transform 0.3s ease, background 0.3s ease;
     }
-    button:hover {
-      transform: scale(1.05);
-      box-shadow: 0 0 20px #00f2fe88;
+    .menu button:hover {
+      background: #00ffff;
+      transform: scale(1.1);
     }
-    canvas.hidden {
-      display: none;
+    canvas.hidden { display: none; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.9); }
+      to { opacity: 1; transform: scale(1); }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <button onclick="startGame('easy')">Easy Mode</button>
-    <button onclick="startGame('normal')">Normal Mode</button>
-    <button onclick="startGame('hard')">Hard Mode</button>
-    <button onclick="startGame('insane')">Insane Mode</button>
-    <button onclick="startGame('demon')">Demon Mode</button>
+  <div class="menu" id="menu">
+    <h1>GD-Lite</h1>
+    <button onclick="startGame('easy')">Easy</button>
+    <button onclick="startGame('normal')">Normal</button>
+    <button onclick="startGame('hard')">Hard</button>
+    <button onclick="startGame('insane')">Insane</button>
+    <button onclick="startGame('extreme')">Extreme</button>
   </div>
-
   <canvas id="gameCanvas" class="hidden"></canvas>
 
   <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-
-    let cube = { x: 50, y: 300, width: 30, height: 30, color: randomColor(), vy: 0, jumping: false };
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    let mode = "easy";
     let gravity = 0.6;
+    let cube = { x: 50, y: 300, w: 30, h: 30, vy: 0, jumping: false, color: randColor() };
     let level = [];
-    let mode = 'easy';
-    let keys = {};
-    let mouseClicked = false;
+    let running = false;
 
-    function startGame(selectedMode) {
-      document.querySelector('.container').style.display = 'none';
-      canvas.classList.remove('hidden');
-      mode = selectedMode;
-      cube.color = randomColor();
+    function randColor() {
+      return `hsl(${Math.random() * 360}, 80%, 60%)`;
+    }
+
+    function startGame(selected) {
+      document.getElementById("menu").style.display = "none";
+      canvas.classList.remove("hidden");
+      mode = selected;
+      cube.color = randColor();
       cube.x = 50;
       cube.y = 300;
       cube.vy = 0;
       cube.jumping = false;
-      level = generateLevel(mode);
+      level = createLevel(mode);
+      running = true;
       requestAnimationFrame(gameLoop);
     }
 
-    function randomColor() {
-      return `hsl(${Math.random() * 360}, 80%, 60%)`;
-    }
-
-    function generateLevel(mode) {
-      const obstacles = [];
-      const count = { easy: 5, normal: 10, hard: 15, insane: 20, demon: 30 }[mode];
-
-      for (let i = 1; i <= count; i++) {
-        const useSpike = Math.random() > 0.5;
-        const x = i * 200;
-        const y = Math.random() > 0.5 ? 250 : 320;
-
-        if (useSpike) {
-          obstacles.push({ type: 'spike', x, y });
+    function createLevel(mode) {
+      const level = [];
+      let num = mode === "easy" ? 5 : mode === "normal" ? 10 : mode === "hard" ? 15 : mode === "insane" ? 20 : 25;
+      for (let i = 1; i <= num; i++) {
+        const type = Math.random() < 0.5 ? "block" : "spike";
+        const x = i * 250;
+        if (type === "block") {
+          const y = 270 - Math.floor(Math.random() * 100);
+          level.push({ type, x, y, w: 50, h: 50 });
         } else {
-          obstacles.push({ type: 'block', x, y, width: 40, height: 40 });
+          level.push({ type, x, y: 320, size: 30 });
         }
       }
-
-      return obstacles;
-    }
-
-    function drawSpike(x, y, size = 40) {
-      ctx.fillStyle = '#e74c3c';
-      ctx.beginPath();
-      ctx.moveTo(x, y + size);
-      ctx.lineTo(x + size / 2, y);
-      ctx.lineTo(x + size, y + size);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    function drawBlock(block) {
-      ctx.fillStyle = '#3498db';
-      ctx.fillRect(block.x, block.y, block.width, block.height);
+      return level;
     }
 
     function gameLoop() {
+      if (!running) return;
+
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#444';
+
+      ctx.fillStyle = "#222";
       ctx.fillRect(0, 350, canvas.width, 5);
 
+      // Apply gravity
       cube.vy += gravity;
       cube.y += cube.vy;
+
       if (cube.y >= 320) {
         cube.y = 320;
         cube.vy = 0;
         cube.jumping = false;
       }
 
+      // Draw cube
       ctx.fillStyle = cube.color;
-      ctx.fillRect(cube.x, cube.y, cube.width, cube.height);
+      ctx.fillRect(cube.x, cube.y, cube.w, cube.h);
 
-      for (let i = 0; i < level.length; i++) {
-        const obs = level[i];
+      // Draw & move level
+      for (let obs of level) {
         obs.x -= 4;
+        if (obs.type === "block") {
+          ctx.fillStyle = "#00ff90";
+          ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
 
-        if (obs.type === 'spike') {
-          drawSpike(obs.x, obs.y);
-          if (
-            cube.x < obs.x + 40 &&
-            cube.x + cube.width > obs.x &&
-            cube.y + cube.height > obs.y
-          ) {
-            alert('You lost!');
-            location.reload();
-            return;
+          // Side collision
+          if (cube.x + cube.w > obs.x && cube.x < obs.x + obs.w && cube.y + cube.h > obs.y) {
+            if (cube.y + cube.h - cube.vy <= obs.y) {
+              cube.y = obs.y - cube.h;
+              cube.vy = 0;
+              cube.jumping = false;
+            } else {
+              die();
+              return;
+            }
           }
-        }
+        } else {
+          ctx.fillStyle = "#ff0055";
+          ctx.beginPath();
+          ctx.moveTo(obs.x, obs.y + obs.size);
+          ctx.lineTo(obs.x + obs.size / 2, obs.y);
+          ctx.lineTo(obs.x + obs.size, obs.y + obs.size);
+          ctx.closePath();
+          ctx.fill();
 
-        if (obs.type === 'block') {
-          drawBlock(obs);
-
-          const hitSideOrBottom =
-            cube.x < obs.x + obs.width &&
-            cube.x + cube.width > obs.x &&
-            cube.y + cube.height > obs.y + 5;
-
-          const landingOnTop =
-            cube.x < obs.x + obs.width &&
-            cube.x + cube.width > obs.x &&
-            cube.y + cube.height > obs.y &&
-            cube.y + cube.height < obs.y + 10 &&
-            cube.vy > 0;
-
-          if (landingOnTop) {
-            cube.y = obs.y - cube.height;
-            cube.vy = 0;
-            cube.jumping = false;
-          } else if (hitSideOrBottom) {
-            alert('You lost!');
-            location.reload();
+          if (
+            cube.x < obs.x + obs.size &&
+            cube.x + cube.w > obs.x &&
+            cube.y + cube.h > obs.y
+          ) {
+            die();
             return;
           }
         }
       }
 
-      if (level.length > 0 && level[level.length - 1].x < -50) {
-        alert('Level Complete!');
+      // Victory check
+      if (level[level.length - 1].x < -50) {
+        alert("🎉 You Win!");
         location.reload();
         return;
       }
@@ -183,24 +174,24 @@
       requestAnimationFrame(gameLoop);
     }
 
-    window.addEventListener('keydown', (e) => {
-      keys[e.code] = true;
-      if ((e.code === 'Space' || e.code === 'ArrowUp') && !cube.jumping) {
-        cube.vy = -12;
-        cube.jumping = true;
-      }
-    });
+    function die() {
+      running = false;
+      alert("💥 You Died!");
+      location.reload();
+    }
 
-    window.addEventListener('keyup', (e) => {
-      keys[e.code] = false;
-    });
-
-    canvas.addEventListener('mousedown', () => {
+    function jump() {
       if (!cube.jumping) {
         cube.vy = -12;
         cube.jumping = true;
       }
+    }
+
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space" || e.code === "ArrowUp") jump();
     });
+    window.addEventListener("mousedown", jump);
+    window.addEventListener("touchstart", jump);
   </script>
 </body>
 </html>
